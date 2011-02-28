@@ -109,7 +109,7 @@ ls_main(int argc, char *argv[])
 		else if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &win) == 0 &&
 		    win.ws_col > 0)
 			termwidth = win.ws_col;
-		f_column = f_nonprint = 1;
+		f_column = /*f_nonprint =*/ 1;
 	} else {
 		f_singlecol = 1;
 		/* retrieve environment variable, in case of explicit -C */
