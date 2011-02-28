@@ -129,6 +129,7 @@ int unix2dosfn(u_char *un, u_char dn[12], int unlen, u_int gen);
 int unix2winfn(u_char *un, int unlen, struct winentry *wep, int cnt, int chksum);
 int winChkName(u_char *un, int unlen, struct winentry *wep, int chksum);
 int win2unixfn(struct winentry *wep, struct dirent *dp, int chksum);
+int dosdir_wchar_to_utf8(struct dirent *dp, int chksum);
 u_int8_t winChksum(u_int8_t *name);
 int winSlotCnt(u_char *un, int unlen);
 #endif	/* _KERNEL */

@@ -89,6 +89,68 @@ uint32_t lastday;
 u_short lastddate;
 u_short lastdtime;
 
+static int
+wput_utf8(char *s, size_t n, u_int16_t wc)
+{
+	if (wc & 0xF800) {
+	 if (n < 3)
+	  return 0;
+	 s[0] = 0xE0 | (wc >> 12);
+	 s[1] = 0x80 | ((wc >> 6) & 0x3F);
+	 s[2] = 0x80 | (wc & 0x3F);
+	 return 3;
+	} else if (wc & 0x0780) {
+	 if (n < 2)
+	  return 0;
+	 s[0] = 0xC0 | (wc >> 6);
+	 s[1] = 0x80 | ((wc) & 0x3F);
+	} else {
+	 if (n < 1)
+	  return 0;
+	 s[0] = wc;
+	 return 1;
+	}
+	return 0;
+}
+
+static u_int16_t
+wget_utf8(const char **str, size_t *sz)
+{
+	int c;
+	u_int16_t rune = 0;
+	const char *s = *str;
+	static const int _utf_count[16] = {
+	 1, 1, 1, 1, 1, 1, 1, 1, 
+	 0, 0, 0, 0, 2, 2, 3, 0,
+	};
+
+	c = _utf_count[(s[0] & 0xF0) >> 4];
+	if (c == 0 || c > *sz) {
+decoding_error:
+	 c = 1;
+	}
+
+	switch (c) {
+	 case 1:
+	  rune = s[0] & 0xFF;
+	  break;
+	 case 2:
+	  if ((s[1] & 0xC0) != 0x80)
+	   goto decoding_error;
+	  rune = ((s[0] & 0x1F) << 6) | (s[1] & 0x3f);
+	  break;
+	 case 3:
+	  if ((s[1] & 0xC0) != 0x80 || (s[2] & 0xC0) != 0x80)
+	   goto decoding_error;
+	  rune = ((s[0] & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F);
+	  break;
+	}
+
+	*str += c;
+	*sz -= c;
+	return rune;
+}
+
 /*
  * Convert the unix version of time to dos's idea of time to be used in
  * file timestamps. The passed in unix time is assumed to be in GMT.
@@ -553,13 +615,28 @@ unix2winfn(u_char *un, int unlen, struct winentry *wep, int cnt, int chksum)
 	u_int8_t *cp;
 	int i;
 
+	size_t count1;
+	const char * name;
+	u_char buf[WIN_MAXLEN * 2];
 	/*
 	 * Drop trailing blanks and dots
 	 */
 	for (cp = un + unlen; *--cp == ' ' || *cp == '.'; unlen--);
 
-	un += (cnt - 1) * WIN_CHARS;
-	unlen -= (cnt - 1) * WIN_CHARS;
+	name = un;
+	count1 = 0;
+	while (unlen > 0) {
+	 u_int16_t wc;
+	 size_t len1 = unlen;
+	 wc = wget_utf8(&name, &len1);
+	 buf[count1++] = (wc & 0xFF);
+	 buf[count1++] = (wc >> 8);
+	 unlen = len1;
+	}
+	unlen = count1;
+	un = buf;
+	un += (cnt - 1) * WIN_CHARS * 2;
+	unlen -= (cnt - 1) * WIN_CHARS * 2;
 	
 	/*
 	 * Initialize winentry to some useful default
@@ -575,22 +652,25 @@ unix2winfn(u_char *un, int unlen, struct winentry *wep, int cnt, int chksum)
 	 * Now convert the filename parts
 	 */
 	for (cp = wep->wePart1, i = sizeof(wep->wePart1)/2; --i >= 0;) {
-		if (--unlen < 0)
+		unlen -= 2;
+		if (unlen < 0)
 			goto done;
 		*cp++ = *un++;
-		*cp++ = 0;
+		*cp++ = *un++;
 	}
 	for (cp = wep->wePart2, i = sizeof(wep->wePart2)/2; --i >= 0;) {
-		if (--unlen < 0)
+		unlen -= 2;
+		if (unlen < 0)
 			goto done;
 		*cp++ = *un++;
-		*cp++ = 0;
+		*cp++ = *un++;
 	}
 	for (cp = wep->wePart3, i = sizeof(wep->wePart3)/2; --i >= 0;) {
-		if (--unlen < 0)
+		unlen -= 2;
+		if (unlen < 0)
 			goto done;
 		*cp++ = *un++;
-		*cp++ = 0;
+		*cp++ = *un++;
 	}
 	if (!unlen)
 		wep->weCnt |= WIN_LAST;
@@ -610,9 +690,13 @@ done:
 int
 winChkName(u_char *un, int unlen, struct winentry *wep, int chksum)
 {
-	u_int8_t *cp;
+	u_int8_t *cp, *we_p;
+	u_char we_name[2 + sizeof(*wep)];
 	int i;
 	
+	size_t count1;
+	const char * name;
+	u_char buf[WIN_MAXLEN * 2];
 	/*
 	 * First compare checksums
 	 */
@@ -623,20 +707,35 @@ winChkName(u_char *un, int unlen, struct winentry *wep, int chksum)
 	if (chksum == -1)
 		return -1;
 	
+	count1 = 0;
+	name = (const char *)un;
+	while (unlen > 0) {
+	 u_int16_t wc;
+	 size_t len1 = unlen;
+	 /* const char * t_name = name; */
+	 wc = wget_utf8(&name, &len1);
+	 buf[count1++] = (wc & 0xFF);
+	 buf[count1++] = (wc >> 8);
+	 /* assert(t_name != name); */
+	 unlen = len1;
+	}
+	unlen = count1;
+	un = buf;
 	/*
 	 * Offset of this entry
 	 */
-	i = ((wep->weCnt&WIN_CNT) - 1) * WIN_CHARS;
+	i = ((wep->weCnt&WIN_CNT) - 1) * WIN_CHARS * 2;
 	if ((unlen -= i) <= 0)
 		return -1;
 	un += i;
 
-	if ((wep->weCnt&WIN_LAST) && unlen > WIN_CHARS)
+	if ((wep->weCnt&WIN_LAST) && unlen > WIN_CHARS * 2)
 		return -1;
 	
 	/*
 	 * Compare the name parts
 	 */
+#if 0
 	for (cp = wep->wePart1, i = sizeof(wep->wePart1)/2; --i >= 0;) {
 		if (--unlen < 0) {
 			if (!*cp++ && !*cp)
@@ -664,6 +763,24 @@ winChkName(u_char *un, int unlen, struct winentry *wep, int chksum)
 		if (u2l[*cp++] != u2l[*un++] || *cp++)
 			return -1;
 	}
+#endif
+	cp = we_p = we_name;
+	memcpy(we_p, wep->wePart1, sizeof(wep->wePart1));
+	we_p += sizeof(wep->wePart1);
+	memcpy(we_p, wep->wePart2, sizeof(wep->wePart2));
+	we_p += sizeof(wep->wePart2);
+	memcpy(we_p, wep->wePart3, sizeof(wep->wePart3));
+	we_p += sizeof(wep->wePart3);
+	we_p[0] = we_p[1] = 0;
+	while (cp < we_p) {
+	 if (--unlen < 0) {
+	  if (cp[0] == 0 && cp[1] == 0)
+	   return chksum;
+	  return -1;
+	 }
+	 if (*cp++ != *un++)
+	  return -1;
+	}
 	return chksum;
 }
 
@@ -678,7 +795,7 @@ win2unixfn(struct winentry *wep, struct dirent *dp, int chksum)
 	u_int8_t *np, *ep = dp->d_name + WIN_MAXLEN;
 	int i;
 
-	if ((wep->weCnt&WIN_CNT) > howmany(WIN_MAXLEN, WIN_CHARS)
+	if ((wep->weCnt&WIN_CNT) > howmany(WIN_MAXLEN, WIN_CHARS * 2)
 	    || !(wep->weCnt&WIN_CNT))
 		return -1;
 	
@@ -690,7 +807,7 @@ win2unixfn(struct winentry *wep, struct dirent *dp, int chksum)
 		/*
 		 * This works even though d_namlen is one byte!
 		 */
-		dp->d_namlen = (wep->weCnt&WIN_CNT) * WIN_CHARS;
+		dp->d_namlen = (wep->weCnt&WIN_CNT) * WIN_CHARS * 2;
 	} else if (chksum != wep->weChksum)
 		chksum = -1;
 	if (chksum == -1)
@@ -699,9 +816,18 @@ win2unixfn(struct winentry *wep, struct dirent *dp, int chksum)
 	/*
 	 * Offset of this entry
 	 */
-	i = ((wep->weCnt&WIN_CNT) - 1) * WIN_CHARS;
+	i = ((wep->weCnt&WIN_CNT) - 1) * WIN_CHARS * 2;
 	np = (u_int8_t *)dp->d_name + i;
+	memcpy(np, wep->wePart1, sizeof(wep->wePart1));
+	np += sizeof(wep->wePart1);
+	memcpy(np, wep->wePart2, sizeof(wep->wePart2));
+	np += sizeof(wep->wePart2);
+	memcpy(np, wep->wePart3, sizeof(wep->wePart3));
+	np += sizeof(wep->wePart3);
+	/* avoid warnning */
+	ep = cp = np;
 	
+#if 0
 	/*
 	 * Convert the name parts
 	 */
@@ -768,6 +894,7 @@ win2unixfn(struct winentry *wep, struct dirent *dp, int chksum)
 		if (*cp++)
 			return -1;
 	}
+#endif
 	return chksum;
 }
 
@@ -791,10 +918,59 @@ winChksum(u_int8_t *name)
 int
 winSlotCnt(u_char *un, int unlen)
 {
-	for (un += unlen; unlen > 0; unlen--)
-		if (*--un != ' ' && *un != '.')
-			break;
-	if (unlen > WIN_MAXLEN)
+	u_int16_t wc;
+	size_t count = 0;
+	size_t count1 = 0;
+	const char * name = un;
+	while (unlen > 0) {
+	 size_t len = unlen;
+	 wc = wget_utf8(&name, &len);
+	 count += 2;
+	 if (wc != ' ' && wc != '.')
+	  count1 = count;
+	 unlen = len;
+	}
+	if (count1 > WIN_MAXLEN * 2)
 		return 0;
-	return howmany(unlen, WIN_CHARS);
+	return howmany(count1, WIN_CHARS * 2);
 }
+
+int
+dosdir_wchar_to_utf8(dp, chksum)
+struct dirent *dp;
+int chksum;
+{
+	u_int16_t wc;
+	int n, count;
+	char *cp, *ep;
+	u_int8_t *np;
+	u_int8_t name[sizeof(dp->d_name)];
+	if ((dp->d_namlen & 0x01) /* || dp->d_namlen >= sizeof(name) => u_int8_t < (255 + 1) */)
+	 return -1;
+	memcpy(name, dp->d_name, dp->d_namlen);
+	count = (dp->d_namlen / 2);
+	np = name;
+	cp = dp->d_name;
+	ep = dp->d_name + sizeof(dp->d_name);
+	while (count-- > 0 && cp < ep) {
+	 wc = *np++;
+	 wc |= (*np++ << 8);
+	 switch(wc) {
+	  case '/':
+	   dp->d_namlen = (cp - dp->d_name);
+	   *cp = 0;
+	   return -1;
+	  case 0:
+	   dp->d_namlen = (cp - dp->d_name);
+	   *cp = 0;
+	   return chksum;
+	 }
+	 n = wput_utf8(cp, ep - cp, wc);
+	 if (n == 0)
+	 break;
+	 cp += n;
+	}
+	dp->d_namlen = (cp < ep)? (cp - dp->d_name): dp->d_namlen;
+	return (cp < ep)? chksum: -1;
+}
+

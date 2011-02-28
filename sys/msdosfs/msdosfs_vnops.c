@@ -1572,6 +1572,7 @@ msdosfs_readdir(void *v)
 				dirbuf.d_type = DT_REG;
 			}
 
+			chksum = dosdir_wchar_to_utf8(&dirbuf, chksum);
 			if (chksum != winChksum(dentp->deName))
 				dirbuf.d_namlen = dos2unixfn(dentp->deName,
 				    (u_char *)dirbuf.d_name,
