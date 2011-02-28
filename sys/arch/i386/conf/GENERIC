@@ -1,0 +1,4 @@
+
+machine i386
+include "../../../arch/i386/conf/GENERIC.base"
+config bsd swap generic

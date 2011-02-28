@@ -5,7 +5,6 @@
 
 #option		INSECURE	# default to secure
 
-option		DDB		# in-kernel debugger
 #option		DDB_SAFE_CONSOLE # allow break into ddb during boot
 #makeoptions	DEBUG="-g"	# compile full symbol table
 #makeoptions	PROF="-pg"	# build profiled kernel
@@ -26,9 +25,7 @@ option		SYSVMSG		# System V-like message queues
 option		SYSVSEM		# System V-like semaphores
 option		SYSVSHM		# System V-like memory sharing
 
-option		UVM_SWAP_ENCRYPT# support encryption of pages going to swap
 
-option		COMPAT_43	# Kernel compatibility with 4.3BSD
 
 option		LKM		# loadable kernel modules
 

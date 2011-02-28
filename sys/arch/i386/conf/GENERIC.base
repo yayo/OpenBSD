@@ -9,30 +9,23 @@
 # of each device driver in this file see the section 4 man page for the
 # device.
 
-machine		i386
 include		"../../../conf/GENERIC"
 maxusers	80			# estimated number of users
 
 option		USER_PCICONF	# user-space PCI configuration
 
 #option		VM86		# Virtual 8086 emulation
-option		KVM86		# Kernel Virtual 8086 emulation
 option		USER_LDT	# user-settable LDT; see i386_set_ldt(2)
 option		APERTURE	# in-kernel aperture driver for XFree86
 
 #option		KGDB		# Remote debugger support; exclusive of DDB
 #option		"KGDB_DEVNAME=\"com\"",KGDBADDR=0x2f8,KGDBRATE=9600
 
-option		COMPAT_SVR4	# binary compatibility with SVR4
-option		COMPAT_LINUX	# binary compatibility with Linux
-option		COMPAT_FREEBSD	# binary compatibility with FreeBSD
-option		COMPAT_AOUT	# a.out binaries are emulated
 
 option		PROCFS		# /proc
-#option		NTFS		# Experimental NTFS support
+option		NTFS		# Experimental NTFS support
 
 # or use		root on nfs swap on nfs
-config		bsd	swap generic
 
 mainbus0 at root
 
@@ -75,7 +68,6 @@ isa0	at mainbus0
 isa0	at pcib?
 isa0	at amdpcib?
 isa0	at ichpcib?
-isa0	at piixpcib?
 isa0	at gscpcib?
 isa0	at glxpcib?
 eisa0	at mainbus0
@@ -88,7 +80,6 @@ pci*	at pchb?
 pcib*	at pci?			# PCI-ISA bridge
 amdpcib* at pci?		# AMD 8111 LPC bridge 
 ichpcib* at pci?		# Intel ICHx/ICHx-M LPC bridges
-piixpcib* at pci?		# Intel PIIX4 PCI-ISA bridge
 gscpcib* at pci?		# NS Geode SC1100 PCI-ISA bridge
 gpio*	at gscpcib?
 glxpcib* at pci?		# AMD CS5536 PCI-ISA bridge
@@ -335,7 +326,7 @@ isapnp0	at isa?
 
 option	WSDISPLAY_COMPAT_USL		# VT handling
 option	WSDISPLAY_COMPAT_RAWKBD		# provide raw scancodes; needed for X11
-option	WSDISPLAY_DEFAULTSCREENS=6	# initial number of text consoles
+option	WSDISPLAY_DEFAULTSCREENS=12	# initial number of text consoles
 option	WSDISPLAY_COMPAT_PCVT		# emulate some ioctls; needed for X11
 
 pckbc0		at isa? flags 0x00	# PC keyboard controller

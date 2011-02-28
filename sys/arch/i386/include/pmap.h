@@ -173,7 +173,7 @@
  */
 
 #ifndef NKPTP
-#define NKPTP		4	/* 16MB to start */
+#define NKPTP		65	/* 16MB to start */
 #endif
 #define NKPTP_MIN	4	/* smallest value we allow */
 #define NKPTP_MAX	(1024 - (KERNBASE/NBPD) - 1)
