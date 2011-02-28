@@ -1559,7 +1559,7 @@ tht_fifo_write_dmap(struct tht_softc *sc, struct tht_fifo *tf,
 void
 tht_fifo_write_pad(struct tht_softc *sc, struct tht_fifo *tf, int bc)
 {
-	const static u_int32_t pad = 0x0;
+	static u_int32_t pad = 0x0;
 
 	/* this assumes you'll only ever be writing multiples of 4 bytes */
 	if (bc % 8)

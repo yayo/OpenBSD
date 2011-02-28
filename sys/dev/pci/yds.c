@@ -351,7 +351,7 @@ yds_download_mcode(sc)
 	struct yds_softc *sc;
 {
 	u_int ctrl;
-	const u_int32_t *p;
+	u_int32_t *p;
 	size_t size;
 	u_char *buf;
 	size_t buflen;

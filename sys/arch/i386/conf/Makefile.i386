@@ -25,8 +25,8 @@ _archdir?=	$S/arch/${_arch}
 INCLUDES=	-nostdinc -I. -I$S -I$S/arch
 CPPFLAGS=	${INCLUDES} ${IDENT} ${PARAM} -D_KERNEL
 CWARNFLAGS=	-Werror -Wall -Wstrict-prototypes -Wmissing-prototypes \
-		-Wno-main -Wno-uninitialized -Wno-format \
-		-Wstack-larger-than-2047
+		-Wno-main -Wno-uninitialized -Wno-format -Wno-strict-aliasing \
+		-Wstack-larger-than-4095
 
 CMACHFLAGS=
 CMACHFLAGS+=	-fno-builtin-printf -fno-builtin-snprintf \
@@ -36,7 +36,7 @@ CMACHFLAGS+=	-fno-builtin-printf -fno-builtin-snprintf \
 CMACHFLAGS+=	-fno-stack-protector
 .endif
 
-COPTS?=		-O2
+COPTS?=		-O3
 CFLAGS=		${DEBUG} ${CWARNFLAGS} ${CMACHFLAGS} ${COPTS} ${PIPE}
 AFLAGS=		-D_LOCORE -x assembler-with-cpp ${CMACHFLAGS}
 LINKFLAGS=	-Ttext 0xD0200120 -e start -N --warn-common
