@@ -616,6 +616,23 @@ find_splices(struct kinfo_file *kf, int cnt)
 	}
 }
 
+void print_connection_state(uint32_t s)
+{char *o,p[]=" <==> ";
+ if(SS_CONNECTOUT&s)
+  {o=p+1;
+   o[0]=' ';
+  }
+ else
+  {o=p;
+   o[4]=' ';
+   o[5]=0;
+  }
+ if(SS_CANTSENDMORE&s) p[2]='-';
+ if(SS_CANTRCVMORE&s) p[3]='-';
+ if(!(SS_ISCONNECTED&s)) p[2]=p[3]='-';
+ printf("%s",o);
+}
+
 void
 print_inet_details(struct kinfo_file *kf)
 {
@@ -629,10 +646,7 @@ print_inet_details(struct kinfo_file *kf)
 		printf(" %s:%d", laddr.s_addr == INADDR_ANY ? "*" :
 		    inet_ntoa(laddr), ntohs(kf->inp_lport));
 		if (kf->inp_fport) {
-			if (kf->so_state & SS_CONNECTOUT)
-				printf(" --> ");
-			else
-				printf(" <-- ");
+			print_connection_state(kf->so_state);
 			printf("%s:%d",
 			    faddr.s_addr == INADDR_ANY ? "*" :
 			    inet_ntoa(faddr), ntohs(kf->inp_fport));
@@ -669,10 +683,7 @@ print_inet6_details(struct kinfo_file *kf)
 		    IN6_IS_ADDR_UNSPECIFIED(&laddr6) ? "*" :
 		    xaddrbuf, ntohs(kf->inp_lport));
 		if (kf->inp_fport) {
-			if (kf->so_state & SS_CONNECTOUT)
-				printf(" --> ");
-			else
-				printf(" <-- ");
+			print_connection_state(kf->so_state);
 			snprintf(xaddrbuf, sizeof(xaddrbuf), "[%s]",
 			    inet6_addrstr(&faddr6));
 			printf("%s:%d",
